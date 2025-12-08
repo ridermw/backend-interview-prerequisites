@@ -1,5 +1,13 @@
-// Error classes for API responses
+/**
+ * API Error Classes
+ * These error classes are used throughout the API layer to communicate specific error conditions.
+ * Each error has an associated HTTP status code for proper HTTP response handling.
+ */
 
+/**
+ * Thrown when request validation fails (e.g., invalid field types, missing required fields)
+ * HTTP Status: 400 Bad Request
+ */
 export class ValidationError extends Error {
   status = 400;
   constructor(message: string) {
@@ -8,6 +16,10 @@ export class ValidationError extends Error {
   }
 }
 
+/**
+ * Thrown when a resource already exists or violates a unique constraint
+ * HTTP Status: 409 Conflict
+ */
 export class ConflictError extends Error {
   status = 409;
   constructor(message: string) {
@@ -16,6 +28,10 @@ export class ConflictError extends Error {
   }
 }
 
+/**
+ * Thrown when a requested resource does not exist
+ * HTTP Status: 404 Not Found
+ */
 export class NotFoundError extends Error {
   status = 404;
   constructor(message: string) {
@@ -24,8 +40,10 @@ export class NotFoundError extends Error {
   }
 }
 
-// Validation option interfaces
-
+/**
+ * Configuration options for string validation.
+ * Used to specify constraints on string fields such as length and whitespace handling.
+ */
 export interface StringValidationOptions {
   required?: boolean;
   minLength?: number;
@@ -33,8 +51,10 @@ export interface StringValidationOptions {
   trim?: boolean;
 }
 
-// Database error helper class
-
+/**
+ * Utility class for detecting specific SQLite database errors.
+ * Helps distinguish between different types of database constraint violations.
+ */
 class DatabaseErrorHandler {
   static isUniqueError(err: unknown, table?: string): boolean {
     if (!err || typeof err !== "object") return false;
@@ -53,8 +73,10 @@ class DatabaseErrorHandler {
   }
 }
 
-// Validation class
-
+/**
+ * Validation utility class providing static methods for common validation tasks.
+ * All methods throw ValidationError if validation fails, allowing errors to bubble up to the API caller.
+ */
 class Validator {
   static validateId(value: unknown, field: string): number {
     const num = typeof value === "number" ? value : Number(value);
@@ -144,8 +166,11 @@ class Validator {
   }
 }
 
-// Base API class with encapsulated utilities
-
+/**
+ * Abstract base class for all API modules.
+ * Provides access to validation and error handling utilities through protected static properties.
+ * All API classes (ChannelsAPI, UsersAPI, MessagesAPI, etc.) should extend this class.
+ */
 export abstract class BaseAPI {
   // Protected access to validator and error handler for subclasses
   protected static readonly validator = Validator;

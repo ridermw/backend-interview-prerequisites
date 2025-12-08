@@ -1,6 +1,16 @@
+/**
+ * Channels API Module
+ * Provides data access and business logic for channel management.
+ * All channel operations go through this module to ensure consistent validation and error handling.
+ */
+
 import { sqlConnection } from "../database";
 import { ValidationError, ConflictError, NotFoundError, BaseAPI } from "./base";
 
+/**
+ * Channel data model representing a channel in a workspace.
+ * Channels are messaging spaces that organize conversations by topic.
+ */
 export interface Channel {
   id: number;
   workspace_id: number;
@@ -10,7 +20,17 @@ export interface Channel {
   created_at: string;
 }
 
+/**
+ * API class for channel operations.
+ * Extends BaseAPI to inherit validation and error handling utilities.
+ * All methods are static to provide a namespace for channel-related operations.
+ */
 export class ChannelsAPI extends BaseAPI {
+  /**
+   * Retrieves all channels in a workspace.
+   * @param workspaceId - The ID of the workspace
+   * @returns Array of channels in the workspace
+   */
   static async getChannels(workspaceId: number): Promise<Channel[]> {
     const db = await sqlConnection();
     return await db.all<Channel>(
@@ -19,6 +39,11 @@ export class ChannelsAPI extends BaseAPI {
     );
   }
 
+  /**
+   * Retrieves a specific channel by ID.
+   * @param id - The ID of the channel
+   * @returns The channel if found, undefined otherwise
+   */
   static async getChannelById(id: number): Promise<Channel | undefined> {
     const db = await sqlConnection();
     return await db.get<Channel>("SELECT * FROM `channels` WHERE id = $id", {
@@ -26,6 +51,23 @@ export class ChannelsAPI extends BaseAPI {
     });
   }
 
+  /**
+   * Creates a new channel in a workspace with comprehensive validation.
+   * - Validates all input parameters
+   * - Ensures workspace exists
+   * - Ensures creator user exists (if provided)
+   * - Checks for duplicate channel names within the workspace
+   * - Optionally adds creator as initial member
+   * @param workspaceId - The ID of the workspace
+   * @param name - The channel name (required, max 80 chars)
+   * @param topic - Optional topic/description (max 255 chars)
+   * @param isPrivate - Whether the channel is private (default: false)
+   * @param creatorUserId - Optional user ID to add as initial member
+   * @returns The created channel
+   * @throws ValidationError if inputs are invalid
+   * @throws NotFoundError if workspace or user doesn't exist
+   * @throws ConflictError if channel name already exists in workspace
+   */
   static async createChannel(
     workspaceId: number,
     name: string,
@@ -105,6 +147,12 @@ export class ChannelsAPI extends BaseAPI {
     return channel;
   }
 
+  /**
+   * Adds a user to a channel.
+   * Uses INSERT OR IGNORE to handle duplicate membership gracefully.
+   * @param channelId - The ID of the channel
+   * @param userId - The ID of the user to add
+   */
   static async joinChannel(channelId: number, userId: number): Promise<void> {
     const db = await sqlConnection();
     await db.run(
@@ -116,6 +164,11 @@ export class ChannelsAPI extends BaseAPI {
     );
   }
 
+  /**
+   * Retrieves all user IDs of members in a channel.
+   * @param channelId - The ID of the channel
+   * @returns Array of user IDs who are members of the channel
+   */
   static async getChannelMembers(channelId: number): Promise<number[]> {
     const db = await sqlConnection();
     const rows = await db.all<{ user_id: number }>(
@@ -126,7 +179,11 @@ export class ChannelsAPI extends BaseAPI {
   }
 }
 
-// Convenience exports for backward compatibility
+/**
+ * Convenience function exports for backward compatibility.
+ * These allow importing individual functions directly from the module without using the ChannelsAPI class.
+ * Example: import { createChannel } from './channels' instead of ChannelsAPI.createChannel
+ */
 export const getChannels = ChannelsAPI.getChannels;
 export const getChannelById = ChannelsAPI.getChannelById;
 export const createChannel = ChannelsAPI.createChannel;
