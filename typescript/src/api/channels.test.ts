@@ -5,6 +5,9 @@ import {
   createChannel,
   joinChannel,
   getChannelMembers,
+  ValidationError,
+  ConflictError,
+  NotFoundError,
 } from "./channels";
 import { createUser } from "./users";
 
@@ -17,7 +20,7 @@ describe("channels api", () => {
     const db = await sqlConnection();
     const result = await db.run(
       "INSERT INTO `workspaces` (`name`, `slug`) VALUES ($name, $slug)",
-      { $name: name, $slug: slug }
+      { $name: name, $slug: slug },
     );
     return result.lastID;
   }
@@ -27,7 +30,7 @@ describe("channels api", () => {
     const channel = await createChannel(
       workspaceId,
       "general",
-      "General discussion"
+      "General discussion",
     );
 
     expect(channel).toMatchObject({
@@ -37,6 +40,46 @@ describe("channels api", () => {
       is_private: 0,
     });
     expect(channel.id).toBeGreaterThan(0);
+  });
+
+  it("creates a channel with defaults when optional fields omitted", async () => {
+    const workspaceId = await createWorkspace("Test Workspace", "test-ws");
+    const channel = await createChannel(workspaceId, "general");
+
+    expect(channel).toMatchObject({
+      workspace_id: workspaceId,
+      name: "general",
+      topic: "",
+      is_private: 0,
+    });
+  });
+
+  it("creates a private channel when isPrivate is true", async () => {
+    const workspaceId = await createWorkspace("Test Workspace", "test-ws");
+    const channel = await createChannel(
+      workspaceId,
+      "private-channel",
+      "Secret stuff",
+      true,
+    );
+
+    expect(channel.is_private).toBe(1);
+  });
+
+  it("automatically adds creator as member when userId provided", async () => {
+    const workspaceId = await createWorkspace("Test Workspace", "test-ws");
+    const user = await createUser("alice", "alice@example.com");
+
+    const channel = await createChannel(
+      workspaceId,
+      "general",
+      undefined,
+      false,
+      user.id,
+    );
+
+    const members = await getChannelMembers(channel.id);
+    expect(members).toEqual([user.id]);
   });
 
   it("retrieves channels by workspace", async () => {

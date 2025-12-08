@@ -13,7 +13,7 @@ export function initializeTcp(): Server {
         JSON.stringify({
           ok,
           ...res,
-        }) + "\n\n"
+        }) + "\n\n",
       );
     }
 

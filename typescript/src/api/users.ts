@@ -24,7 +24,7 @@ export async function getUserById(id: number): Promise<User | undefined> {
 export async function createUser(
   username: string,
   email: string,
-  displayName?: string
+  displayName?: string,
 ): Promise<User> {
   const db = await sqlConnection();
   const result = await db.run(
@@ -33,7 +33,7 @@ export async function createUser(
       $username: username,
       $email: email,
       $displayName: displayName || null,
-    }
+    },
   );
 
   const user = await getUserById(result.lastID);
@@ -45,7 +45,7 @@ export async function createUser(
 
 export async function updateUserStatus(
   id: number,
-  status: string
+  status: string,
 ): Promise<User | undefined> {
   const db = await sqlConnection();
   await db.run("UPDATE `users` SET status = $status WHERE id = $id", {

@@ -1,7 +1,7 @@
 # Backend interview prep (TypeScript / JavaScript)
 
-This is a sample project intended to verify environment compatibility with the Slack backend coding interview. While 
-this is written in TypeScript, our JavaScript repository uses the same environment. If you can successfully run `npm test` and 
+This is a sample project intended to verify environment compatibility with the Slack backend coding interview. While
+this is written in TypeScript, our JavaScript repository uses the same environment. If you can successfully run `npm test` and
 `npm run dev-ts` in this project, you should have no problem with running either the JavaScript or TypeScript projects.
 
 ## Requirements
@@ -29,21 +29,21 @@ To run unit tests:
 
 ## Data Storage
 
-Data is stored in a local sqlite3 database, `datastore.db`. The schema is in `src/database/schema.sql`. During test 
-execution, an in-memory database is used.  Outside of tests, if anything is written to the database, it will be
+Data is stored in a local sqlite3 database, `datastore.db`. The schema is in `src/database/schema.sql`. During test
+execution, an in-memory database is used. Outside of tests, if anything is written to the database, it will be
 stored in `src/database/datastore.db`.
 
 ## Client API
 
 The following API requests can be sent by clients to interact with the server.
 
-- `hello.get` 
+- `hello.get`
 - `hello.post`
 
 ## Invoking the API
 
-The API is exposed over a RESTful(ish) HTTP server and a raw TCP socket interface that can be locally 
-invoked via netcat.  Read on for information about how to invoke this:
+The API is exposed over a RESTful(ish) HTTP server and a raw TCP socket interface that can be locally
+invoked via netcat. Read on for information about how to invoke this:
 
 ### Over TCP
 

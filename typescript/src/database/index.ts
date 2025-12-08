@@ -5,15 +5,17 @@ import * as path from "node:path";
 let instance: AsyncDatabase | undefined;
 let schema: string;
 
-const dbFile = process.env.NODE_ENV === "test" ? ":memory:" : path.resolve(__dirname, "datastore.db");
+const dbFile =
+  process.env.NODE_ENV === "test"
+    ? ":memory:"
+    : path.resolve(__dirname, "datastore.db");
 
 export async function sqlConnection(): Promise<AsyncDatabase> {
   if (!instance) {
     try {
       instance = await AsyncDatabase.open(dbFile);
       const schemaPath = path.resolve(__dirname, "schema.sql");
-      schema =
-        schema || (await readFile(schemaPath, { encoding: "utf-8" }));
+      schema = schema || (await readFile(schemaPath, { encoding: "utf-8" }));
       const statements = schema
         .split(";")
         .map((s) => s.trim())

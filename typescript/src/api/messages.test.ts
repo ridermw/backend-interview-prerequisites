@@ -18,7 +18,7 @@ describe("messages api", () => {
     const db = await sqlConnection();
     const result = await db.run(
       "INSERT INTO `workspaces` (`name`, `slug`) VALUES ($name, $slug)",
-      { $name: name, $slug: slug }
+      { $name: name, $slug: slug },
     );
     return result.lastID;
   }
@@ -70,20 +70,10 @@ describe("messages api", () => {
     const parentMessage = await createMessage(
       channel.id,
       user.id,
-      "Parent message"
+      "Parent message",
     );
-    await createMessage(
-      channel.id,
-      user.id,
-      "Reply 1",
-      parentMessage.id
-    );
-    await createMessage(
-      channel.id,
-      user.id,
-      "Reply 2",
-      parentMessage.id
-    );
+    await createMessage(channel.id, user.id, "Reply 1", parentMessage.id);
+    await createMessage(channel.id, user.id, "Reply 2", parentMessage.id);
 
     const replies = await getThreadReplies(channel.id, parentMessage.id);
 

@@ -14,7 +14,9 @@ export interface MessageWithUser extends Message {
   display_name: string | null;
 }
 
-export async function getMessages(channelId: number): Promise<MessageWithUser[]> {
+export async function getMessages(
+  channelId: number,
+): Promise<MessageWithUser[]> {
   const db = await sqlConnection();
   return await db.all<MessageWithUser>(
     `SELECT m.*, u.username, u.display_name 
@@ -22,7 +24,7 @@ export async function getMessages(channelId: number): Promise<MessageWithUser[]>
      JOIN users u ON m.user_id = u.id 
      WHERE m.channel_id = $channelId 
      ORDER BY m.created_at ASC`,
-    { $channelId: channelId }
+    { $channelId: channelId },
   );
 }
 
@@ -37,7 +39,7 @@ export async function createMessage(
   channelId: number,
   userId: number,
   text: string,
-  threadTs?: number
+  threadTs?: number,
 ): Promise<Message> {
   const db = await sqlConnection();
   const result = await db.run(
@@ -47,7 +49,7 @@ export async function createMessage(
       $userId: userId,
       $text: text,
       $threadTs: threadTs || null,
-    }
+    },
   );
 
   const message = await getMessageById(result.lastID);
@@ -59,7 +61,7 @@ export async function createMessage(
 
 export async function getThreadReplies(
   channelId: number,
-  threadTs: number
+  threadTs: number,
 ): Promise<MessageWithUser[]> {
   const db = await sqlConnection();
   return await db.all<MessageWithUser>(
@@ -68,14 +70,14 @@ export async function getThreadReplies(
      JOIN users u ON m.user_id = u.id 
      WHERE m.channel_id = $channelId AND m.thread_ts = $threadTs 
      ORDER BY m.created_at ASC`,
-    { $channelId: channelId, $threadTs: threadTs }
+    { $channelId: channelId, $threadTs: threadTs },
   );
 }
 
 export async function addReaction(
   messageId: number,
   userId: number,
-  emoji: string
+  emoji: string,
 ): Promise<void> {
   const db = await sqlConnection();
   await db.run(
@@ -84,16 +86,16 @@ export async function addReaction(
       $messageId: messageId,
       $userId: userId,
       $emoji: emoji,
-    }
+    },
   );
 }
 
 export async function getReactions(
-  messageId: number
+  messageId: number,
 ): Promise<{ emoji: string; count: number }[]> {
   const db = await sqlConnection();
   return await db.all<{ emoji: string; count: number }>(
     "SELECT emoji, COUNT(*) as count FROM `reactions` WHERE message_id = $messageId GROUP BY emoji ORDER BY emoji",
-    { $messageId: messageId }
+    { $messageId: messageId },
   );
 }
