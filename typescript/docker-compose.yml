@@ -1,0 +1,23 @@
+services:
+  # Main application server
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: slack-interview-app
+    ports:
+      - "3033:3033"
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+    command: npm run dev-ts
+    # File watch for auto-rebuild (Docker 4.20+)
+    develop:
+      watch:
+        - path: ./src
+          action: rebuild
+        - path: ./package.json
+          action: rebuild

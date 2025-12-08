@@ -1,0 +1,17 @@
+# Test Dockerfile for running unit tests in isolation
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy application code
+COPY . .
+
+# Run tests
+CMD ["npm", "test"]
