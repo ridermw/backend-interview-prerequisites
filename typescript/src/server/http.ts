@@ -34,11 +34,11 @@ export function initializeHttp(): Express {
 
     try {
       const channel = await createChannel(
-        Number(workspaceId),
+        workspaceId,
         name,
         topic,
         isPrivate,
-        userId === undefined ? undefined : Number(userId),
+        userId,
       );
       res.json({ ok: true, channel });
     } catch (err: unknown) {

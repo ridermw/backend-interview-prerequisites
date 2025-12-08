@@ -5,10 +5,8 @@ import {
   createChannel,
   joinChannel,
   getChannelMembers,
-  ValidationError,
-  ConflictError,
-  NotFoundError,
 } from "./channels";
+import { ValidationError, ConflictError, NotFoundError } from "./base";
 import { createUser } from "./users";
 
 describe("channels api", () => {
