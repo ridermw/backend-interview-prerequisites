@@ -1,6 +1,8 @@
 import express, { Express, Request, Response, json } from "express";
-import { createChannel } from "../api/channels";
 import { ValidationError, ConflictError, NotFoundError } from "../api/base";
+import { registerChannelsEndpoints } from "./http.channels";
+import { registerMessagesEndpoints } from "./http.messages";
+import { registerUsersEndpoints } from "./http.users";
 
 /**
  * Centralized error handler for API errors.
@@ -14,7 +16,7 @@ import { ValidationError, ConflictError, NotFoundError } from "../api/base";
  * @param context - Description of the operation that failed (for logging)
  */
 // Helper to handle API errors consistently
-function handleApiError(err: unknown, res: Response, context: string): void {
+export function handleApiError(err: unknown, res: Response, context: string): void {
   if (
     err instanceof ValidationError ||
     err instanceof NotFoundError ||
@@ -45,29 +47,10 @@ export function initializeHttp(): Express {
     res.json({ ok: true, msg: "hello", params: req.query, body: req.body });
   });
 
-  /**
-   * POST /api/channels.create
-   * Creates a new channel in a workspace.
-   * Request body: { workspaceId, name, topic?, isPrivate?, userId? }
-   * All validation and business logic is delegated to ChannelsAPI.createChannel()
-   * Errors are caught and formatted into appropriate HTTP responses.
-   */
-  app.post(`/api/channels.create`, async (req: Request, res: Response) => {
-    const { workspaceId, name, topic, isPrivate, userId } = req.body ?? {};
-
-    try {
-      const channel = await createChannel(
-        workspaceId,
-        name,
-        topic,
-        isPrivate,
-        userId,
-      );
-      res.json({ ok: true, channel });
-    } catch (err: unknown) {
-      handleApiError(err, res, "channels.create");
-    }
-  });
+  // Register all endpoints
+  registerChannelsEndpoints(app);
+  registerMessagesEndpoints(app);
+  registerUsersEndpoints(app);
 
   return app;
 }
