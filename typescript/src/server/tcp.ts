@@ -1,6 +1,13 @@
 import { createServer, Server } from "net";
 import { Logger } from "../utils/logger";
 
+/**
+ * Initializes and configures the TCP server.
+ * Handles JSON-based request/response protocol over TCP sockets.
+ * Each request must be a JSON object with a 'type' field.
+ * Responses are JSON objects with 'ok' status field.
+ * @returns Configured TCP server instance
+ */
 export function initializeTcp(): Server {
   const server = createServer();
 
@@ -18,13 +25,18 @@ export function initializeTcp(): Server {
       );
     }
 
-    Logger.debug(`Client connected: ${socket.remoteAddress}:${socket.remotePort}`, "tcp");
+    Logger.debug(
+      `Client connected: ${socket.remoteAddress}:${socket.remotePort}`,
+      "tcp",
+    );
 
     socket.on("data", (data) => {
       if (!socket.remotePort) {
         return;
       }
-      Logger.debug(`Data received from ${socket.remoteAddress}`, "tcp", { data: data.toString() });
+      Logger.debug(`Data received from ${socket.remoteAddress}`, "tcp", {
+        data: data.toString(),
+      });
 
       const requests = data.toString("utf8").trim().split("\n");
       for (const rawRequest of requests) {
@@ -50,7 +62,10 @@ export function initializeTcp(): Server {
       if (!socket.remotePort) {
         return;
       }
-      Logger.debug(`Client disconnected: ${socket.remoteAddress}:${socket.remotePort}`, "tcp");
+      Logger.debug(
+        `Client disconnected: ${socket.remoteAddress}:${socket.remotePort}`,
+        "tcp",
+      );
     });
   });
   return server;

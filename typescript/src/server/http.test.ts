@@ -1,6 +1,6 @@
 /**
  * HTTP Server Integration Tests
- * 
+ *
  * These tests verify the HTTP server's integration across all endpoints,
  * testing complete workflows that span multiple API resources.
  * Tests use supertest to make actual HTTP requests to the Express app.
@@ -92,7 +92,7 @@ describe("http server - integration tests", () => {
      * 5. Post messages and threaded replies
      * 6. Add emoji reactions to messages
      * 7. Update user status
-     * 
+     *
      * This test ensures all endpoints work correctly together and data
      * flows properly through the entire system.
      */
@@ -101,25 +101,27 @@ describe("http server - integration tests", () => {
       const workspaceId = await createWorkspace("Integration Test", "integ");
 
       // Create users via HTTP
-      const userRes1 = await request(app)
-        .post("/api/users.create")
-        .send({ username: "alice", email: "alice@example.com", displayName: "Alice" });
+      const userRes1 = await request(app).post("/api/users.create").send({
+        username: "alice",
+        email: "alice@example.com",
+        displayName: "Alice",
+      });
       const user1Id = userRes1.body.user.id;
 
-      const userRes2 = await request(app)
-        .post("/api/users.create")
-        .send({ username: "bob", email: "bob@example.com", displayName: "Bob" });
+      const userRes2 = await request(app).post("/api/users.create").send({
+        username: "bob",
+        email: "bob@example.com",
+        displayName: "Bob",
+      });
       const user2Id = userRes2.body.user.id;
 
       // Create channel with user 1 as creator via HTTP
-      const channelRes = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId,
-          name: "general",
-          topic: "General discussion",
-          userId: user1Id,
-        });
+      const channelRes = await request(app).post("/api/channels.create").send({
+        workspaceId,
+        name: "general",
+        topic: "General discussion",
+        userId: user1Id,
+      });
       const channelId = channelRes.body.channel.id;
 
       // User 2 joins channel via HTTP
@@ -130,36 +132,36 @@ describe("http server - integration tests", () => {
       expect(joinRes.status).toBe(200);
 
       // Get channel members via HTTP
-      const membersRes = await request(app).get(`/api/channels.getMembers?channelId=${channelId}`);
+      const membersRes = await request(app).get(
+        `/api/channels.getMembers?channelId=${channelId}`,
+      );
 
       expect(membersRes.body.members).toHaveLength(2);
       expect(membersRes.body.members).toContain(user1Id);
       expect(membersRes.body.members).toContain(user2Id);
 
       // User 1 posts message via HTTP
-      const msgRes1 = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId,
-          userId: user1Id,
-          text: "Hello everyone!",
-        });
+      const msgRes1 = await request(app).post("/api/messages.create").send({
+        channelId,
+        userId: user1Id,
+        text: "Hello everyone!",
+      });
       const messageId = msgRes1.body.message.id;
 
       // User 2 posts reply via HTTP
-      const msgRes2 = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId,
-          userId: user2Id,
-          text: "Hi Alice!",
-          threadTs: messageId,
-        });
+      const msgRes2 = await request(app).post("/api/messages.create").send({
+        channelId,
+        userId: user2Id,
+        text: "Hi Alice!",
+        threadTs: messageId,
+      });
 
       expect(msgRes2.status).toBe(200);
 
       // Get messages via HTTP
-      const getMessagesRes = await request(app).get(`/api/messages.get?channelId=${channelId}`);
+      const getMessagesRes = await request(app).get(
+        `/api/messages.get?channelId=${channelId}`,
+      );
 
       expect(getMessagesRes.body.messages).toHaveLength(2);
 
@@ -189,11 +191,17 @@ describe("http server - integration tests", () => {
       expect(reaction3.status).toBe(200);
 
       // Get reactions via HTTP
-      const reactionsRes = await request(app).get(`/api/messages.getReactions?messageId=${messageId}`);
+      const reactionsRes = await request(app).get(
+        `/api/messages.getReactions?messageId=${messageId}`,
+      );
 
       expect(reactionsRes.body.reactions).toHaveLength(2);
-      const thumbsUp = reactionsRes.body.reactions.find((r: any) => r.emoji === "👍");
-      const heart = reactionsRes.body.reactions.find((r: any) => r.emoji === "❤️");
+      const thumbsUp = reactionsRes.body.reactions.find(
+        (r: any) => r.emoji === "👍",
+      );
+      const heart = reactionsRes.body.reactions.find(
+        (r: any) => r.emoji === "❤️",
+      );
       expect(thumbsUp.count).toBe(2);
       expect(heart.count).toBe(1);
 
@@ -222,12 +230,10 @@ describe("http server - integration tests", () => {
      */
     it("returns error response for invalid requests", async () => {
       // Missing required field in channel creation
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId: 999,
-          // missing name
-        });
+      const res = await request(app).post("/api/channels.create").send({
+        workspaceId: 999,
+        // missing name
+      });
 
       expect(res.body.ok).toBe(false);
     });
@@ -253,4 +259,3 @@ describe("http server - integration tests", () => {
     });
   });
 });
-

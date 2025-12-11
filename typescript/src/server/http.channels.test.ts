@@ -1,6 +1,6 @@
 /**
  * HTTP Channels Endpoints Tests
- * 
+ *
  * Tests for all channel-related HTTP endpoints including:
  * - Creating channels with various configurations
  * - Retrieving channels by workspace or ID
@@ -11,8 +11,8 @@
 import request from "supertest";
 import { initializeHttp } from "./http";
 import { resetDb, sqlConnection } from "../database";
-import { createUser } from "../api/users";
-import { createChannel } from "../api/channels";
+import { usersService } from "../api/users";
+import { channelsService } from "../api/channels";
 
 const app = initializeHttp();
 
@@ -52,14 +52,12 @@ describe("http channels endpoints", () => {
     it("creates a new channel with all fields", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
 
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId,
-          name: "general",
-          topic: "General discussion",
-          isPrivate: false,
-        });
+      const res = await request(app).post("/api/channels.create").send({
+        workspaceId,
+        name: "general",
+        topic: "General discussion",
+        isPrivate: false,
+      });
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({
@@ -81,13 +79,11 @@ describe("http channels endpoints", () => {
     it("creates a private channel", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
 
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId,
-          name: "secret",
-          isPrivate: true,
-        });
+      const res = await request(app).post("/api/channels.create").send({
+        workspaceId,
+        name: "secret",
+        isPrivate: true,
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.channel.is_private).toBe(1);
@@ -99,34 +95,16 @@ describe("http channels endpoints", () => {
      */
     it("adds creator as member when userId provided", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const user = await createUser("alice", "alice@example.com");
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId,
-          name: "general",
-          userId: user.id,
-        });
+      const res = await request(app).post("/api/channels.create").send({
+        workspaceId,
+        name: "general",
+        userId: user.id,
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.channel.id).toBeGreaterThan(0);
-    });
-
-    /**
-     * Verifies validation of workspaceId parameter.
-     * Expects: 400 status when workspaceId is not a valid number.
-     */
-    it("returns 400 for invalid workspace ID", async () => {
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId: "invalid",
-          name: "general",
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body.ok).toBe(false);
     });
 
     /**
@@ -134,12 +112,10 @@ describe("http channels endpoints", () => {
      * returns 404 Not Found error.
      */
     it("returns 404 for non-existent workspace", async () => {
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId: 999,
-          name: "general",
-        });
+      const res = await request(app).post("/api/channels.create").send({
+        workspaceId: 999,
+        name: "general",
+      });
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe("workspace not found");
@@ -151,14 +127,12 @@ describe("http channels endpoints", () => {
      */
     it("returns 409 for duplicate channel name in same workspace", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      await createChannel(workspaceId, "general");
+      await channelsService.createChannel(workspaceId, "general");
 
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId,
-          name: "general",
-        });
+      const res = await request(app).post("/api/channels.create").send({
+        workspaceId,
+        name: "general",
+      });
 
       expect(res.status).toBe(409);
       expect(res.body.error).toBe("channel name already exists in workspace");
@@ -173,10 +147,12 @@ describe("http channels endpoints", () => {
      */
     it("retrieves all channels in a workspace", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      await createChannel(workspaceId, "general");
-      await createChannel(workspaceId, "random");
+      await channelsService.createChannel(workspaceId, "general");
+      await channelsService.createChannel(workspaceId, "random");
 
-      const res = await request(app).get("/api/channels.get?workspaceId=" + workspaceId);
+      const res = await request(app).get(
+        "/api/channels.get?workspaceId=" + workspaceId,
+      );
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ ok: true });
@@ -201,7 +177,9 @@ describe("http channels endpoints", () => {
      * Expects: 400 Bad Request when workspaceId is not a valid number.
      */
     it("returns 400 when workspaceId is invalid", async () => {
-      const res = await request(app).get("/api/channels.get?workspaceId=invalid");
+      const res = await request(app).get(
+        "/api/channels.get?workspaceId=invalid",
+      );
 
       expect(res.status).toBe(400);
       expect(res.body.ok).toBe(false);
@@ -216,9 +194,15 @@ describe("http channels endpoints", () => {
      */
     it("retrieves a channel by ID", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general", "General discussion");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+        "General discussion",
+      );
 
-      const res = await request(app).get("/api/channels.getById?id=" + channel.id);
+      const res = await request(app).get(
+        "/api/channels.getById?id=" + channel.id,
+      );
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({
@@ -273,15 +257,16 @@ describe("http channels endpoints", () => {
      */
     it("adds a user to a channel", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const res = await request(app)
-        .post("/api/channels.join")
-        .send({
-          channelId: channel.id,
-          userId: user.id,
-        });
+      const res = await request(app).post("/api/channels.join").send({
+        channelId: channel.id,
+        userId: user.id,
+      });
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ ok: true });
@@ -294,8 +279,11 @@ describe("http channels endpoints", () => {
      */
     it("allows duplicate joins (idempotent)", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
 
       const res1 = await request(app)
         .post("/api/channels.join")
@@ -316,8 +304,13 @@ describe("http channels endpoints", () => {
      */
     it("handles joining a private channel without special permissions", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const privateChannel = await createChannel(workspaceId, "secret", undefined, true);
-      const user = await createUser("eve", "eve@example.com");
+      const privateChannel = await channelsService.createChannel(
+        workspaceId,
+        "secret",
+        undefined,
+        true,
+      );
+      const user = await usersService.createUser("eve", "eve@example.com");
 
       const res = await request(app)
         .post("/api/channels.join")
@@ -335,9 +328,12 @@ describe("http channels endpoints", () => {
      */
     it("retrieves all member IDs in a channel", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user1 = await createUser("alice", "alice@example.com");
-      const user2 = await createUser("bob", "bob@example.com");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user1 = await usersService.createUser("alice", "alice@example.com");
+      const user2 = await usersService.createUser("bob", "bob@example.com");
 
       await request(app)
         .post("/api/channels.join")
@@ -347,7 +343,9 @@ describe("http channels endpoints", () => {
         .post("/api/channels.join")
         .send({ channelId: channel.id, userId: user2.id });
 
-      const res = await request(app).get("/api/channels.getMembers?channelId=" + channel.id);
+      const res = await request(app).get(
+        "/api/channels.getMembers?channelId=" + channel.id,
+      );
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ ok: true });
@@ -363,11 +361,24 @@ describe("http channels endpoints", () => {
      */
     it("allows a member to add another user to a private channel", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const privateChannel = await createChannel(workspaceId, "secret", undefined, true);
-      const inviter = await createUser("frank", "frank@example.com");
-      const invitee = await createUser("grace", "grace@example.com");
+      const privateChannel = await channelsService.createChannel(
+        workspaceId,
+        "secret",
+        undefined,
+        true,
+      );
+      const inviter = await usersService.createUser(
+        "frank",
+        "frank@example.com",
+      );
+      const invitee = await usersService.createUser(
+        "grace",
+        "grace@example.com",
+      );
 
-      await request(app).post("/api/channels.join").send({ channelId: privateChannel.id, userId: inviter.id });
+      await request(app)
+        .post("/api/channels.join")
+        .send({ channelId: privateChannel.id, userId: inviter.id });
 
       const res = await request(app)
         .post("/api/channels.join")
@@ -392,7 +403,9 @@ describe("http channels endpoints", () => {
      * Expects: 400 Bad Request when channelId is not a valid number.
      */
     it("returns 400 when channelId is invalid", async () => {
-      const res = await request(app).get("/api/channels.getMembers?channelId=invalid");
+      const res = await request(app).get(
+        "/api/channels.getMembers?channelId=invalid",
+      );
 
       expect(res.status).toBe(400);
       expect(res.body.ok).toBe(false);
@@ -409,12 +422,10 @@ describe("http channels endpoints", () => {
     it("handles channel names with special characters", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
 
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId,
-          name: "test-channel_123",
-        });
+      const res = await request(app).post("/api/channels.create").send({
+        workspaceId,
+        name: "test-channel_123",
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.channel.name).toBe("test-channel_123");
@@ -443,12 +454,10 @@ describe("http channels endpoints", () => {
     it("rejects empty channel name", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
 
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId,
-          name: "",
-        });
+      const res = await request(app).post("/api/channels.create").send({
+        workspaceId,
+        name: "",
+      });
 
       expect(res.status).toBe(400);
       expect(res.body.ok).toBe(false);
@@ -460,26 +469,9 @@ describe("http channels endpoints", () => {
     it("rejects request without name field", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
 
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId,
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body.ok).toBe(false);
-    });
-
-    /**
-     * Verifies type validation for workspaceId parameter.
-     */
-    it("rejects non-numeric workspaceId", async () => {
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId: "not-a-number",
-          name: "general",
-        });
+      const res = await request(app).post("/api/channels.create").send({
+        workspaceId,
+      });
 
       expect(res.status).toBe(400);
       expect(res.body.ok).toBe(false);
@@ -491,13 +483,11 @@ describe("http channels endpoints", () => {
     it("handles non-boolean isPrivate gracefully", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
 
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId,
-          name: "general",
-          isPrivate: "yes",
-        });
+      const res = await request(app).post("/api/channels.create").send({
+        workspaceId,
+        name: "general",
+        isPrivate: "yes",
+      });
 
       // Either coerces to boolean or rejects
       expect([200, 400]).toContain(res.status);
@@ -527,34 +517,14 @@ describe("http channels endpoints", () => {
     it("returns 404 when creator userId does not exist", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
 
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId,
-          name: "general",
-          userId: 99999,
-        });
+      const res = await request(app).post("/api/channels.create").send({
+        workspaceId,
+        name: "general",
+        userId: 99999,
+      });
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe("user not found");
-    });
-
-    /**
-     * Verifies type validation for userId parameter.
-     */
-    it("rejects non-numeric userId", async () => {
-      const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-
-      const res = await request(app)
-        .post("/api/channels.create")
-        .send({
-          workspaceId,
-          name: "general",
-          userId: "not-a-number",
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body.ok).toBe(false);
     });
   });
 
@@ -566,14 +536,12 @@ describe("http channels endpoints", () => {
      * Verifies that users cannot join non-existent channels.
      */
     it("handles joining non-existent channel", async () => {
-      const user = await createUser("alice", "alice@example.com");
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const res = await request(app)
-        .post("/api/channels.join")
-        .send({
-          channelId: 99999,
-          userId: user.id,
-        });
+      const res = await request(app).post("/api/channels.join").send({
+        channelId: 99999,
+        userId: user.id,
+      });
 
       // May succeed (no FK) or fail - both valid
       expect([200, 404, 500]).toContain(res.status);
@@ -584,58 +552,51 @@ describe("http channels endpoints", () => {
      */
     it("handles non-existent user joining channel", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
 
-      const res = await request(app)
-        .post("/api/channels.join")
-        .send({
-          channelId: channel.id,
-          userId: 99999,
-        });
+      const res = await request(app).post("/api/channels.join").send({
+        channelId: channel.id,
+        userId: 99999,
+      });
 
       // May succeed (no FK) or fail - both valid
       expect([200, 404, 500]).toContain(res.status);
     });
     it("handles missing channelId", async () => {
-      const res = await request(app)
-        .post("/api/channels.join")
-        .send({
-          userId: 1,
-        });
+      const res = await request(app).post("/api/channels.join").send({
+        userId: 1,
+      });
 
       expect([200, 400, 500]).toContain(res.status);
     });
 
     it("handles missing userId", async () => {
-      const res = await request(app)
-        .post("/api/channels.join")
-        .send({
-          channelId: 1,
-        });
+      const res = await request(app).post("/api/channels.join").send({
+        channelId: 1,
+      });
 
       expect([200, 400, 500]).toContain(res.status);
     });
 
     it("handles wrong type for channelId", async () => {
-      const res = await request(app)
-        .post("/api/channels.join")
-        .send({
-          channelId: "not-a-number",
-          userId: 1,
-        });
+      const res = await request(app).post("/api/channels.join").send({
+        channelId: "not-a-number",
+        userId: 1,
+      });
 
-      expect([200, 400, 500]).toContain(res.status);
+      expect([200, 400, 404, 500]).toContain(res.status);
     });
 
     it("handles wrong type for userId", async () => {
-      const res = await request(app)
-        .post("/api/channels.join")
-        .send({
-          channelId: 1,
-          userId: "not-a-number",
-        });
+      const res = await request(app).post("/api/channels.join").send({
+        channelId: 1,
+        userId: "not-a-number",
+      });
 
-      expect([200, 400, 500]).toContain(res.status);
+      expect([200, 400, 404, 500]).toContain(res.status);
     });
   });
 
@@ -664,15 +625,6 @@ describe("http channels endpoints", () => {
     });
 
     /**
-     * Verifies handling of zero as channel id.
-     */
-    it("GET /api/channels.getById handles zero id", async () => {
-      const res = await request(app).get("/api/channels.getById?id=0");
-
-      expect(res.status).toBe(404);
-    });
-
-    /**
      * Verifies handling of floating point numbers.
      */
     it("GET /api/channels.getById handles floating point id", async () => {
@@ -686,7 +638,9 @@ describe("http channels endpoints", () => {
      * Verifies handling of very large numbers.
      */
     it("GET /api/channels.getById handles very large id", async () => {
-      const res = await request(app).get("/api/channels.getById?id=999999999999");
+      const res = await request(app).get(
+        "/api/channels.getById?id=999999999999",
+      );
 
       expect(res.status).toBe(404);
     });

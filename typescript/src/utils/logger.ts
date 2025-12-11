@@ -48,7 +48,12 @@ export class Logger {
    * Check if a log level should be output based on current min level
    */
   private static shouldLog(level: LogLevel): boolean {
-    const levels = [LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR];
+    const levels = [
+      LogLevel.DEBUG,
+      LogLevel.INFO,
+      LogLevel.WARN,
+      LogLevel.ERROR,
+    ];
     const currentIndex = levels.indexOf(Logger.minLevel);
     const requestedIndex = levels.indexOf(level);
     return requestedIndex >= currentIndex;
@@ -63,7 +68,8 @@ export class Logger {
     }
 
     const contextStr = entry.context ? `[${entry.context}]` : "";
-    const dataStr = entry.data !== undefined ? ` ${JSON.stringify(entry.data)}` : "";
+    const dataStr =
+      entry.data !== undefined ? ` ${JSON.stringify(entry.data)}` : "";
     const message = `${entry.timestamp} ${entry.level} ${contextStr} ${entry.message}${dataStr}`;
 
     // Route to appropriate console method
@@ -122,9 +128,10 @@ export class Logger {
    * Log error message with optional error object
    */
   static error(message: string, context?: string, error?: unknown): void {
-    const errorData = error instanceof Error
-      ? { name: error.name, message: error.message, stack: error.stack }
-      : error;
+    const errorData =
+      error instanceof Error
+        ? { name: error.name, message: error.message, stack: error.stack }
+        : error;
     Logger.log(Logger.createEntry(LogLevel.ERROR, message, context, errorData));
   }
 }

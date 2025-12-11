@@ -11,10 +11,18 @@ const dbFile =
     ? ":memory:"
     : path.resolve(__dirname, "datastore.db");
 
+/**
+ * Establishes and returns a database connection.
+ * Uses in-memory database for tests, file-based for other environments.
+ * Automatically initializes schema and enables foreign key constraints on first connection.
+ * @returns Promise resolving to the database connection
+ */
 export async function sqlConnection(): Promise<AsyncDatabase> {
   if (!instance) {
     try {
       instance = await AsyncDatabase.open(dbFile);
+      // Enable foreign key constraints
+      await instance.run("PRAGMA foreign_keys = ON;");
       const schemaPath = path.resolve(__dirname, "schema.sql");
       schema = schema || (await readFile(schemaPath, { encoding: "utf-8" }));
       const statements = schema
@@ -33,6 +41,10 @@ export async function sqlConnection(): Promise<AsyncDatabase> {
   return instance;
 }
 
+/**
+ * Resets the database connection instance.
+ * Used primarily in tests to ensure a clean state between test runs.
+ */
 export function resetDb() {
   instance = undefined;
 }

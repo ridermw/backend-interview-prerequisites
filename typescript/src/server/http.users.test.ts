@@ -1,6 +1,6 @@
 /**
  * HTTP Users Endpoints Tests
- * 
+ *
  * Tests for all user-related HTTP endpoints including:
  * - Retrieving all users or by ID
  * - Creating new users
@@ -11,7 +11,7 @@
 import request from "supertest";
 import { initializeHttp } from "./http";
 import { resetDb } from "../database";
-import { createUser } from "../api/users";
+import { usersService } from "../api/users";
 
 const app = initializeHttp();
 
@@ -35,8 +35,8 @@ describe("http users endpoints", () => {
      * Expects: 200 status, array containing all users with correct usernames.
      */
     it("retrieves all users", async () => {
-      await createUser("alice", "alice@example.com", "Alice");
-      await createUser("bob", "bob@example.com", "Bob");
+      await usersService.createUser("alice", "alice@example.com", "Alice");
+      await usersService.createUser("bob", "bob@example.com", "Bob");
 
       const res = await request(app).get("/api/users.get");
 
@@ -71,7 +71,11 @@ describe("http users endpoints", () => {
      * Expects: 200 status, user object with correct id, username, email, and display_name.
      */
     it("retrieves a user by ID", async () => {
-      const user = await createUser("alice", "alice@example.com", "Alice");
+      const user = await usersService.createUser(
+        "alice",
+        "alice@example.com",
+        "Alice",
+      );
 
       const res = await request(app).get("/api/users.getById?id=" + user.id);
 
@@ -132,13 +136,11 @@ describe("http users endpoints", () => {
      * Expects: 200 status, user object with correct username, email, and display_name.
      */
     it("creates a new user with all fields", async () => {
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: "alice",
-          email: "alice@example.com",
-          displayName: "Alice",
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: "alice",
+        email: "alice@example.com",
+        displayName: "Alice",
+      });
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({
@@ -158,12 +160,10 @@ describe("http users endpoints", () => {
      * Expects: 200 status, user object with display_name set to null.
      */
     it("creates a user without displayName", async () => {
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: "alice",
-          email: "alice@example.com",
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: "alice",
+        email: "alice@example.com",
+      });
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({
@@ -188,14 +188,12 @@ describe("http users endpoints", () => {
      * Expects: 200 status, user object with updated status field.
      */
     it("updates a user's status", async () => {
-      const user = await createUser("alice", "alice@example.com");
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const res = await request(app)
-        .post("/api/users.updateStatus")
-        .send({
-          id: user.id,
-          status: "away",
-        });
+      const res = await request(app).post("/api/users.updateStatus").send({
+        id: user.id,
+        status: "away",
+      });
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({
@@ -212,12 +210,10 @@ describe("http users endpoints", () => {
      * Expects: 404 Not Found error with appropriate error message.
      */
     it("returns 404 for non-existent user", async () => {
-      const res = await request(app)
-        .post("/api/users.updateStatus")
-        .send({
-          id: 999,
-          status: "away",
-        });
+      const res = await request(app).post("/api/users.updateStatus").send({
+        id: 999,
+        status: "away",
+      });
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe("user not found");
@@ -232,11 +228,9 @@ describe("http users endpoints", () => {
      * Verifies validation of required username field.
      */
     it("returns error when username is missing", async () => {
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          email: "test@example.com",
-        });
+      const res = await request(app).post("/api/users.create").send({
+        email: "test@example.com",
+      });
 
       expect(res.body.ok).toBe(false);
     });
@@ -245,11 +239,9 @@ describe("http users endpoints", () => {
      * Verifies validation of required email field.
      */
     it("returns error when email is missing", async () => {
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: "testuser",
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: "testuser",
+      });
 
       expect(res.body.ok).toBe(false);
     });
@@ -259,12 +251,10 @@ describe("http users endpoints", () => {
      * API coerces numbers to strings.
      */
     it("coerces non-string username to string", async () => {
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: 123,
-          email: "test@example.com",
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: 123,
+        email: "test@example.com",
+      });
 
       // API coerces number to string
       expect([200, 400, 500]).toContain(res.status);
@@ -275,12 +265,10 @@ describe("http users endpoints", () => {
      * API coerces numbers to strings.
      */
     it("coerces non-string email to string", async () => {
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: "testuser",
-          email: 123,
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: "testuser",
+        email: 123,
+      });
 
       // API coerces number to string
       expect([200, 400, 500]).toContain(res.status);
@@ -290,12 +278,10 @@ describe("http users endpoints", () => {
      * Verifies handling of empty username.
      */
     it("handles empty username appropriately", async () => {
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: "",
-          email: "test@example.com",
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: "",
+        email: "test@example.com",
+      });
 
       // Either accepts or rejects - both valid
       expect([200, 400]).toContain(res.status);
@@ -305,12 +291,10 @@ describe("http users endpoints", () => {
      * Verifies handling of empty email.
      */
     it("handles empty email appropriately", async () => {
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: "testuser",
-          email: "",
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: "testuser",
+        email: "",
+      });
 
       // Either accepts or rejects - both valid
       expect([200, 400]).toContain(res.status);
@@ -320,12 +304,10 @@ describe("http users endpoints", () => {
      * Verifies handling of special characters in username.
      */
     it("handles special characters in username", async () => {
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: "test_user-123",
-          email: "test@example.com",
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: "test_user-123",
+        email: "test@example.com",
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.user.username).toBe("test_user-123");
@@ -335,13 +317,11 @@ describe("http users endpoints", () => {
      * Verifies handling of special characters in displayName.
      */
     it("handles special characters in displayName", async () => {
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: "alice",
-          email: "alice@example.com",
-          displayName: "Alice O'Brien 👋",
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: "alice",
+        email: "alice@example.com",
+        displayName: "Alice O'Brien 👋",
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.user.display_name).toBe("Alice O'Brien 👋");
@@ -381,12 +361,10 @@ describe("http users endpoints", () => {
      * Verifies handling of invalid email format.
      */
     it("handles invalid email format", async () => {
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: "testuser",
-          email: "not-an-email",
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: "testuser",
+        email: "not-an-email",
+      });
 
       // Either accepts (no validation) or rejects - both valid
       expect([200, 400]).toContain(res.status);
@@ -396,14 +374,12 @@ describe("http users endpoints", () => {
      * Verifies handling of duplicate username.
      */
     it("handles duplicate username", async () => {
-      await createUser("alice", "alice1@example.com");
+      await usersService.createUser("alice", "alice1@example.com");
 
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: "alice",
-          email: "alice2@example.com",
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: "alice",
+        email: "alice2@example.com",
+      });
 
       // Either accepts (no unique constraint) or rejects with 409
       expect([200, 409, 500]).toContain(res.status);
@@ -413,14 +389,12 @@ describe("http users endpoints", () => {
      * Verifies handling of duplicate email.
      */
     it("handles duplicate email", async () => {
-      await createUser("alice", "test@example.com");
+      await usersService.createUser("alice", "test@example.com");
 
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: "bob",
-          email: "test@example.com",
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: "bob",
+        email: "test@example.com",
+      });
 
       // Either accepts (no unique constraint) or rejects with 409
       expect([200, 409, 500]).toContain(res.status);
@@ -431,13 +405,11 @@ describe("http users endpoints", () => {
      * API coerces numbers to strings.
      */
     it("coerces non-string displayName to string", async () => {
-      const res = await request(app)
-        .post("/api/users.create")
-        .send({
-          username: "testuser",
-          email: "test@example.com",
-          displayName: 123,
-        });
+      const res = await request(app).post("/api/users.create").send({
+        username: "testuser",
+        email: "test@example.com",
+        displayName: 123,
+      });
 
       // API coerces number to string
       expect([200, 400, 500]).toContain(res.status);
@@ -452,11 +424,9 @@ describe("http users endpoints", () => {
      * Verifies validation of required id field.
      */
     it("returns error when id is missing", async () => {
-      const res = await request(app)
-        .post("/api/users.updateStatus")
-        .send({
-          status: "away",
-        });
+      const res = await request(app).post("/api/users.updateStatus").send({
+        status: "away",
+      });
 
       expect(res.body.ok).toBe(false);
     });
@@ -465,11 +435,9 @@ describe("http users endpoints", () => {
      * Verifies validation of required status field.
      */
     it("returns error when status is missing", async () => {
-      const res = await request(app)
-        .post("/api/users.updateStatus")
-        .send({
-          id: 1,
-        });
+      const res = await request(app).post("/api/users.updateStatus").send({
+        id: 1,
+      });
 
       expect(res.body.ok).toBe(false);
     });
@@ -478,12 +446,10 @@ describe("http users endpoints", () => {
      * Verifies type validation for id parameter.
      */
     it("returns error when id has wrong type", async () => {
-      const res = await request(app)
-        .post("/api/users.updateStatus")
-        .send({
-          id: "not-a-number",
-          status: "away",
-        });
+      const res = await request(app).post("/api/users.updateStatus").send({
+        id: "not-a-number",
+        status: "away",
+      });
 
       expect(res.body.ok).toBe(false);
     });
@@ -492,12 +458,10 @@ describe("http users endpoints", () => {
      * Verifies type validation for status parameter.
      */
     it("returns error when status has wrong type", async () => {
-      const res = await request(app)
-        .post("/api/users.updateStatus")
-        .send({
-          id: 1,
-          status: 123,
-        });
+      const res = await request(app).post("/api/users.updateStatus").send({
+        id: 1,
+        status: 123,
+      });
 
       expect(res.body.ok).toBe(false);
     });
@@ -506,14 +470,12 @@ describe("http users endpoints", () => {
      * Verifies handling of empty status.
      */
     it("handles empty status appropriately", async () => {
-      const user = await createUser("alice", "alice@example.com");
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const res = await request(app)
-        .post("/api/users.updateStatus")
-        .send({
-          id: user.id,
-          status: "",
-        });
+      const res = await request(app).post("/api/users.updateStatus").send({
+        id: user.id,
+        status: "",
+      });
 
       // Either accepts or rejects - both valid
       expect([200, 400]).toContain(res.status);
@@ -523,7 +485,7 @@ describe("http users endpoints", () => {
      * Verifies handling of very long status.
      */
     it("handles very long status", async () => {
-      const user = await createUser("alice", "alice@example.com");
+      const user = await usersService.createUser("alice", "alice@example.com");
 
       const res = await request(app)
         .post("/api/users.updateStatus")
@@ -540,14 +502,12 @@ describe("http users endpoints", () => {
      * Verifies handling of special characters in status.
      */
     it("handles special characters in status", async () => {
-      const user = await createUser("alice", "alice@example.com");
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const res = await request(app)
-        .post("/api/users.updateStatus")
-        .send({
-          id: user.id,
-          status: "🎉 Celebrating! & <away>",
-        });
+      const res = await request(app).post("/api/users.updateStatus").send({
+        id: user.id,
+        status: "🎉 Celebrating! & <away>",
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.user.status).toBe("🎉 Celebrating! & <away>");

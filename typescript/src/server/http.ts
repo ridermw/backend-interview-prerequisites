@@ -17,7 +17,11 @@ import { Logger } from "../utils/logger";
  * @param context - Description of the operation that failed (for logging)
  */
 // Helper to handle API errors consistently
-export function handleApiError(err: unknown, res: Response, context: string): void {
+export function handleApiError(
+  err: unknown,
+  res: Response,
+  context: string,
+): void {
   if (
     err instanceof ValidationError ||
     err instanceof NotFoundError ||

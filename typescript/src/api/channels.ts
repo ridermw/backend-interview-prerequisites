@@ -5,7 +5,7 @@
  */
 
 import { sqlConnection } from "../database";
-import { ValidationError, ConflictError, NotFoundError, BaseAPI } from "./base";
+import { ConflictError, NotFoundError, BaseAPI } from "./base";
 
 /**
  * Channel data model representing a channel in a workspace.
@@ -23,16 +23,24 @@ export interface Channel {
 /**
  * API class for channel operations.
  * Extends BaseAPI to inherit validation and error handling utilities.
- * All methods are static to provide a namespace for channel-related operations.
+ * Methods are instance-based to allow dependency injection and clearer ownership.
  */
-export class ChannelsAPI extends BaseAPI {
+export class ChannelsService extends BaseAPI {
+  constructor(private readonly dbProvider = sqlConnection) {
+    super();
+  }
+
+  private async db() {
+    return this.dbProvider();
+  }
+
   /**
    * Retrieves all channels in a workspace.
    * @param workspaceId - The ID of the workspace
    * @returns Array of channels in the workspace
    */
-  static async getChannels(workspaceId: number): Promise<Channel[]> {
-    const db = await sqlConnection();
+  async getChannels(workspaceId: number): Promise<Channel[]> {
+    const db = await this.db();
     return await db.all<Channel>(
       "SELECT * FROM `channels` WHERE workspace_id = $workspaceId",
       { $workspaceId: workspaceId },
@@ -44,107 +52,118 @@ export class ChannelsAPI extends BaseAPI {
    * @param id - The ID of the channel
    * @returns The channel if found, undefined otherwise
    */
-  static async getChannelById(id: number): Promise<Channel | undefined> {
-    const db = await sqlConnection();
+  async getChannelById(id: number): Promise<Channel | undefined> {
+    const db = await this.db();
     return await db.get<Channel>("SELECT * FROM `channels` WHERE id = $id", {
       $id: id,
     });
   }
 
   /**
-   * Creates a new channel in a workspace with comprehensive validation.
-   * - Validates all input parameters
-   * - Ensures workspace exists
-   * - Ensures creator user exists (if provided)
-   * - Checks for duplicate channel names within the workspace
-   * - Optionally adds creator as initial member
+   * Creates a new channel in a workspace.
+   * Automatically adds creator as initial member if provided.
    * @param workspaceId - The ID of the workspace
-   * @param name - The channel name (required, max 80 chars)
-   * @param topic - Optional topic/description (max 255 chars)
-   * @param isPrivate - Whether the channel is private (default: false)
-   * @param creatorUserId - Optional user ID to add as initial member
+   * @param name - The channel name
+   * @param topic - Optional channel topic/description
+   * @param isPrivate - Whether the channel is private (defaults to false)
+   * @param creatorUserId - Optional ID of the user creating the channel
    * @returns The created channel
-   * @throws ValidationError if inputs are invalid
-   * @throws NotFoundError if workspace or user doesn't exist
-   * @throws ConflictError if channel name already exists in workspace
    */
-  static async createChannel(
+  async createChannel(
     workspaceId: number,
     name: string,
     topic?: string,
     isPrivate: boolean = false,
     creatorUserId?: number,
   ): Promise<Channel> {
-    const db = await sqlConnection();
-
-    const validWorkspaceId = ChannelsAPI.validator.validateId(
+    const params = {
       workspaceId,
-      "workspaceId",
-    );
-    const validName = ChannelsAPI.validator.validateString(name, "name", {
-      required: true,
-      maxLength: 80,
-      trim: true,
-    });
-    const validTopic = ChannelsAPI.validator.validateString(topic, "topic", {
-      maxLength: 255,
-    });
-    const validIsPrivate = ChannelsAPI.validator.validateBoolean(
-      isPrivate,
-      "isPrivate",
-      false,
-    );
-    const validCreatorUserId =
-      creatorUserId !== undefined
-        ? ChannelsAPI.validator.validateId(creatorUserId, "userId")
-        : undefined;
+      name: this.validateString(name, "name", {
+        required: true,
+        maxLength: 80,
+        trim: true,
+      }),
+      topic: topic
+        ? this.validateString(topic, "topic", { maxLength: 255 })
+        : "",
+      isPrivate: this.validateBoolean(isPrivate, "isPrivate", false),
+      creatorUserId: creatorUserId ?? null,
+    };
 
-    const workspace = await db.get<{ id: number }>(
-      "SELECT id FROM `workspaces` WHERE id = $id",
-      { $id: validWorkspaceId },
-    );
-    if (!workspace) {
-      throw new NotFoundError("workspace not found");
-    }
+    const db = await this.db();
 
-    if (validCreatorUserId !== undefined) {
-      const user = await db.get<{ id: number }>(
-        "SELECT id FROM `users` WHERE id = $id",
-        { $id: validCreatorUserId },
-      );
-      if (!user) {
-        throw new NotFoundError("user not found");
-      }
-    }
+    // Manual transaction handling
+    await db.run("BEGIN TRANSACTION");
 
-    let result;
     try {
-      result = await db.run(
+      // Insert channel
+      const channelId = await this.insertChannel({
+        workspaceId: params.workspaceId,
+        name: params.name,
+        topic: params.topic,
+        isPrivate: params.isPrivate,
+      });
+
+      // Add creator as member if specified
+      if (params.creatorUserId) {
+        await this.joinChannel(channelId, params.creatorUserId);
+      }
+
+      const channel = await this.getChannelById(channelId);
+      if (!channel) {
+        throw new Error("Failed to create channel");
+      }
+
+      await db.run("COMMIT");
+      return channel;
+    } catch (err) {
+      await db.run("ROLLBACK");
+      throw err;
+    }
+  }
+
+  /**
+   * Inserts channel record
+   */
+  private async insertChannel(params: {
+    workspaceId: number;
+    name: string;
+    topic: string;
+    isPrivate: boolean;
+  }): Promise<number> {
+    const db = await this.db();
+
+    try {
+      const result = await db.run(
         "INSERT INTO `channels` (`workspace_id`, `name`, `topic`, `is_private`) VALUES ($workspaceId, $name, $topic, $isPrivate)",
         {
-          $workspaceId: validWorkspaceId,
-          $name: validName,
-          $topic: validTopic,
-          $isPrivate: validIsPrivate ? 1 : 0,
+          $workspaceId: params.workspaceId,
+          $name: params.name,
+          $topic: params.topic,
+          $isPrivate: params.isPrivate ? 1 : 0,
         },
       );
+      return result.lastID;
     } catch (err) {
-      if (ChannelsAPI.errorHandler.isUniqueError(err, "channels")) {
+      if (this.isSqliteUniqueError(err, "channels")) {
         throw new ConflictError("channel name already exists in workspace");
+      }
+      if (this.isSqliteForeignKeyError(err)) {
+        // Check which foreign key constraint failed by checking if the workspace exists
+        const workspace = await db.get(
+          "SELECT id FROM `workspaces` WHERE id = $id",
+          {
+            $id: params.workspaceId,
+          },
+        );
+        if (!workspace) {
+          throw new NotFoundError("workspace not found");
+        }
+        // Generic foreign key error
+        throw new NotFoundError("referenced resource not found");
       }
       throw err;
     }
-
-    const channel = await ChannelsAPI.getChannelById(result.lastID);
-    if (!channel) {
-      throw new Error("Failed to create channel");
-    }
-
-    if (validCreatorUserId !== undefined) {
-      await ChannelsAPI.joinChannel(channel.id, validCreatorUserId);
-    }
-
-    return channel;
   }
 
   /**
@@ -153,15 +172,38 @@ export class ChannelsAPI extends BaseAPI {
    * @param channelId - The ID of the channel
    * @param userId - The ID of the user to add
    */
-  static async joinChannel(channelId: number, userId: number): Promise<void> {
-    const db = await sqlConnection();
-    await db.run(
-      "INSERT OR IGNORE INTO `channel_members` (`channel_id`, `user_id`) VALUES ($channelId, $userId)",
-      {
-        $channelId: channelId,
-        $userId: userId,
-      },
-    );
+  async joinChannel(channelId: number, userId: number): Promise<void> {
+    const db = await this.db();
+    try {
+      await db.run(
+        "INSERT OR IGNORE INTO `channel_members` (`channel_id`, `user_id`) VALUES ($channelId, $userId)",
+        {
+          $channelId: channelId,
+          $userId: userId,
+        },
+      );
+    } catch (err) {
+      if (this.isSqliteForeignKeyError(err)) {
+        // Check which foreign key constraint failed
+        const user = await db.get("SELECT id FROM `users` WHERE id = $id", {
+          $id: userId,
+        });
+        if (!user) {
+          throw new NotFoundError("user not found");
+        }
+        const channel = await db.get(
+          "SELECT id FROM `channels` WHERE id = $id",
+          {
+            $id: channelId,
+          },
+        );
+        if (!channel) {
+          throw new NotFoundError("channel not found");
+        }
+        throw new NotFoundError("referenced resource not found");
+      }
+      throw err;
+    }
   }
 
   /**
@@ -169,23 +211,14 @@ export class ChannelsAPI extends BaseAPI {
    * @param channelId - The ID of the channel
    * @returns Array of user IDs who are members of the channel
    */
-  static async getChannelMembers(channelId: number): Promise<number[]> {
-    const db = await sqlConnection();
+  async getChannelMembers(channelId: number): Promise<number[]> {
+    const db = await this.db();
     const rows = await db.all<{ user_id: number }>(
-      "SELECT user_id FROM `channel_members` WHERE channel_id = $channelId",
+      "SELECT user_id FROM `channel_members` WHERE channel_id = $channelId ORDER BY id ASC",
       { $channelId: channelId },
     );
     return rows.map((row) => row.user_id);
   }
 }
 
-/**
- * Convenience function exports for backward compatibility.
- * These allow importing individual functions directly from the module without using the ChannelsAPI class.
- * Example: import { createChannel } from './channels' instead of ChannelsAPI.createChannel
- */
-export const getChannels = ChannelsAPI.getChannels;
-export const getChannelById = ChannelsAPI.getChannelById;
-export const createChannel = ChannelsAPI.createChannel;
-export const joinChannel = ChannelsAPI.joinChannel;
-export const getChannelMembers = ChannelsAPI.getChannelMembers;
+export const channelsService = new ChannelsService();

@@ -6,12 +6,23 @@ interface Thing {
   name: string;
 }
 
-export class ThingsAPI extends BaseAPI {
-  static async getThings(): Promise<Thing[]> {
-    const db = await sqlConnection();
+export class ThingsService extends BaseAPI {
+  constructor(private readonly dbProvider = sqlConnection) {
+    super();
+  }
+
+  private async db() {
+    return this.dbProvider();
+  }
+
+  /**
+   * Retrieves all things from the database.
+   * @returns Array of all things
+   */
+  async getThings(): Promise<Thing[]> {
+    const db = await this.db();
     return await db.all<Thing>("SELECT * FROM `things`");
   }
 }
 
-// Convenience exports for backward compatibility
-export const getThings = ThingsAPI.getThings;
+export const thingsService = new ThingsService();

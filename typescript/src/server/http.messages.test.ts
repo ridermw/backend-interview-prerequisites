@@ -1,6 +1,6 @@
 /**
  * HTTP Messages Endpoints Tests
- * 
+ *
  * Tests for all message-related HTTP endpoints including:
  * - Creating messages and threaded replies
  * - Retrieving messages by channel or ID
@@ -12,9 +12,9 @@
 import request from "supertest";
 import { initializeHttp } from "./http";
 import { resetDb, sqlConnection } from "../database";
-import { createUser } from "../api/users";
-import { createChannel } from "../api/channels";
-import { createMessage } from "../api/messages";
+import { usersService } from "../api/users";
+import { channelsService } from "../api/channels";
+import { messagesService } from "../api/messages";
 
 const app = initializeHttp();
 
@@ -54,16 +54,17 @@ describe("http messages endpoints", () => {
      */
     it("creates a new message in a channel", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: channel.id,
-          userId: user.id,
-          text: "Hello, world!",
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: channel.id,
+        userId: user.id,
+        text: "Hello, world!",
+      });
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({
@@ -84,18 +85,23 @@ describe("http messages endpoints", () => {
      */
     it("creates a message with thread_ts for threaded replies", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
-      const message = await createMessage(channel.id, user.id, "Original message");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
+      const message = await messagesService.createMessage(
+        channel.id,
+        user.id,
+        "Original message",
+      );
 
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: channel.id,
-          userId: user.id,
-          text: "Reply to message",
-          threadTs: message.id,
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: channel.id,
+        userId: user.id,
+        text: "Reply to message",
+        threadTs: message.id,
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.message.thread_ts).toBe(message.id);
@@ -108,13 +114,18 @@ describe("http messages endpoints", () => {
      */
     it("handles posting to public channel when user is not a member", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "public-general");
-      const user = await createUser("carol", "carol@example.com");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "public-general",
+      );
+      const user = await usersService.createUser("carol", "carol@example.com");
 
       // Do not join the user to the channel
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({ channelId: channel.id, userId: user.id, text: "Hello from outside" });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: channel.id,
+        userId: user.id,
+        text: "Hello from outside",
+      });
 
       expect([200, 400, 404, 500]).toContain(res.status);
     });
@@ -126,12 +137,19 @@ describe("http messages endpoints", () => {
      */
     it("handles posting to private channel when user is not a member", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const privateChannel = await createChannel(workspaceId, "secret", undefined, true);
-      const user = await createUser("dave", "dave@example.com");
+      const privateChannel = await channelsService.createChannel(
+        workspaceId,
+        "secret",
+        undefined,
+        true,
+      );
+      const user = await usersService.createUser("dave", "dave@example.com");
 
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({ channelId: privateChannel.id, userId: user.id, text: "Should this be allowed?" });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: privateChannel.id,
+        userId: user.id,
+        text: "Should this be allowed?",
+      });
 
       expect([200, 400, 404, 500]).toContain(res.status);
     });
@@ -149,13 +167,18 @@ describe("http messages endpoints", () => {
      */
     it("retrieves all messages in a channel", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      await createMessage(channel.id, user.id, "Message 1");
-      await createMessage(channel.id, user.id, "Message 2");
+      await messagesService.createMessage(channel.id, user.id, "Message 1");
+      await messagesService.createMessage(channel.id, user.id, "Message 2");
 
-      const res = await request(app).get("/api/messages.get?channelId=" + channel.id);
+      const res = await request(app).get(
+        "/api/messages.get?channelId=" + channel.id,
+      );
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ ok: true });
@@ -171,12 +194,21 @@ describe("http messages endpoints", () => {
      */
     it("includes user info in message responses", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com", "Alice");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser(
+        "alice",
+        "alice@example.com",
+        "Alice",
+      );
 
-      await createMessage(channel.id, user.id, "Test message");
+      await messagesService.createMessage(channel.id, user.id, "Test message");
 
-      const res = await request(app).get("/api/messages.get?channelId=" + channel.id);
+      const res = await request(app).get(
+        "/api/messages.get?channelId=" + channel.id,
+      );
 
       expect(res.status).toBe(200);
       expect(res.body.messages[0]).toMatchObject({
@@ -220,11 +252,20 @@ describe("http messages endpoints", () => {
      */
     it("retrieves a message by ID", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
-      const message = await createMessage(channel.id, user.id, "Test message");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
+      const message = await messagesService.createMessage(
+        channel.id,
+        user.id,
+        "Test message",
+      );
 
-      const res = await request(app).get("/api/messages.getById?id=" + message.id);
+      const res = await request(app).get(
+        "/api/messages.getById?id=" + message.id,
+      );
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({
@@ -271,12 +312,29 @@ describe("http messages endpoints", () => {
      */
     it("retrieves all replies in a thread", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const message = await createMessage(channel.id, user.id, "Original message");
-      await createMessage(channel.id, user.id, "Reply 1", message.id);
-      await createMessage(channel.id, user.id, "Reply 2", message.id);
+      const message = await messagesService.createMessage(
+        channel.id,
+        user.id,
+        "Original message",
+      );
+      await messagesService.createMessage(
+        channel.id,
+        user.id,
+        "Reply 1",
+        message.id,
+      );
+      await messagesService.createMessage(
+        channel.id,
+        user.id,
+        "Reply 2",
+        message.id,
+      );
 
       const res = await request(app).get(
         `/api/messages.getThreadReplies?channelId=${channel.id}&threadTs=${message.id}`,
@@ -294,7 +352,9 @@ describe("http messages endpoints", () => {
      * Expects: 400 Bad Request when channelId query parameter is not provided.
      */
     it("returns 400 when channelId is missing", async () => {
-      const res = await request(app).get("/api/messages.getThreadReplies?threadTs=1");
+      const res = await request(app).get(
+        "/api/messages.getThreadReplies?threadTs=1",
+      );
 
       expect(res.status).toBe(400);
       expect(res.body.ok).toBe(false);
@@ -305,7 +365,9 @@ describe("http messages endpoints", () => {
      * Expects: 400 Bad Request when threadTs query parameter is not provided.
      */
     it("returns 400 when threadTs is missing", async () => {
-      const res = await request(app).get("/api/messages.getThreadReplies?channelId=1");
+      const res = await request(app).get(
+        "/api/messages.getThreadReplies?channelId=1",
+      );
 
       expect(res.status).toBe(400);
       expect(res.body.ok).toBe(false);
@@ -324,17 +386,22 @@ describe("http messages endpoints", () => {
      */
     it("adds a reaction to a message", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
-      const message = await createMessage(channel.id, user.id, "Test message");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
+      const message = await messagesService.createMessage(
+        channel.id,
+        user.id,
+        "Test message",
+      );
 
-      const res = await request(app)
-        .post("/api/messages.addReaction")
-        .send({
-          messageId: message.id,
-          userId: user.id,
-          emoji: "👍",
-        });
+      const res = await request(app).post("/api/messages.addReaction").send({
+        messageId: message.id,
+        userId: user.id,
+        emoji: "👍",
+      });
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ ok: true });
@@ -347,25 +414,28 @@ describe("http messages endpoints", () => {
      */
     it("allows idempotent reaction additions", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
-      const message = await createMessage(channel.id, user.id, "Test message");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
+      const message = await messagesService.createMessage(
+        channel.id,
+        user.id,
+        "Test message",
+      );
 
-      const res1 = await request(app)
-        .post("/api/messages.addReaction")
-        .send({
-          messageId: message.id,
-          userId: user.id,
-          emoji: "👍",
-        });
+      const res1 = await request(app).post("/api/messages.addReaction").send({
+        messageId: message.id,
+        userId: user.id,
+        emoji: "👍",
+      });
 
-      const res2 = await request(app)
-        .post("/api/messages.addReaction")
-        .send({
-          messageId: message.id,
-          userId: user.id,
-          emoji: "👍",
-        });
+      const res2 = await request(app).post("/api/messages.addReaction").send({
+        messageId: message.id,
+        userId: user.id,
+        emoji: "👍",
+      });
 
       expect(res1.status).toBe(200);
       expect(res2.status).toBe(200);
@@ -384,10 +454,17 @@ describe("http messages endpoints", () => {
      */
     it("retrieves all reactions for a message", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user1 = await createUser("alice", "alice@example.com");
-      const user2 = await createUser("bob", "bob@example.com");
-      const message = await createMessage(channel.id, user1.id, "Test message");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user1 = await usersService.createUser("alice", "alice@example.com");
+      const user2 = await usersService.createUser("bob", "bob@example.com");
+      const message = await messagesService.createMessage(
+        channel.id,
+        user1.id,
+        "Test message",
+      );
 
       await request(app)
         .post("/api/messages.addReaction")
@@ -401,7 +478,9 @@ describe("http messages endpoints", () => {
         .post("/api/messages.addReaction")
         .send({ messageId: message.id, userId: user1.id, emoji: "❤️" });
 
-      const res = await request(app).get("/api/messages.getReactions?messageId=" + message.id);
+      const res = await request(app).get(
+        "/api/messages.getReactions?messageId=" + message.id,
+      );
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ ok: true });
@@ -434,18 +513,20 @@ describe("http messages endpoints", () => {
      */
     it("handles messages with special characters and HTML", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const unsanitizedText = '<script>alert("xss")</script> & "quotes" \'single\' 🎉';
+      const unsanitizedText =
+        '<script>alert("xss")</script> & "quotes" \'single\' 🎉';
 
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: channel.id,
-          userId: user.id,
-          text: unsanitizedText,
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: channel.id,
+        userId: user.id,
+        text: unsanitizedText,
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.message.text).toBe(unsanitizedText);
@@ -456,12 +537,10 @@ describe("http messages endpoints", () => {
      * Expects: Server error when channelId is missing.
      */
     it("returns error when channelId is missing", async () => {
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          userId: 1,
-          text: "Hello",
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        userId: 1,
+        text: "Hello",
+      });
 
       expect(res.body.ok).toBe(false);
     });
@@ -471,12 +550,10 @@ describe("http messages endpoints", () => {
      * Expects: Server error when userId is missing.
      */
     it("returns error when userId is missing", async () => {
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: 1,
-          text: "Hello",
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: 1,
+        text: "Hello",
+      });
 
       expect(res.body.ok).toBe(false);
     });
@@ -486,12 +563,10 @@ describe("http messages endpoints", () => {
      * Expects: Server error when text is missing.
      */
     it("returns error when text is missing", async () => {
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: 1,
-          userId: 1,
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: 1,
+        userId: 1,
+      });
 
       expect(res.body.ok).toBe(false);
     });
@@ -501,13 +576,11 @@ describe("http messages endpoints", () => {
      * API may coerce strings to numbers or fail.
      */
     it("handles wrong type for channelId", async () => {
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: "not-a-number",
-          userId: 1,
-          text: "Hello",
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: "not-a-number",
+        userId: 1,
+        text: "Hello",
+      });
 
       // May succeed with coercion or fail
       expect([200, 400, 500]).toContain(res.status);
@@ -518,13 +591,11 @@ describe("http messages endpoints", () => {
      * API may coerce strings to numbers or fail.
      */
     it("handles wrong type for userId", async () => {
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: 1,
-          userId: "not-a-number",
-          text: "Hello",
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: 1,
+        userId: "not-a-number",
+        text: "Hello",
+      });
 
       // May succeed with coercion or fail
       expect([200, 400, 500]).toContain(res.status);
@@ -535,13 +606,11 @@ describe("http messages endpoints", () => {
      * API coerces numbers to strings.
      */
     it("coerces non-string text to string", async () => {
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: 1,
-          userId: 1,
-          text: 123,
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: 1,
+        userId: 1,
+        text: 123,
+      });
 
       // API coerces number to string
       expect([200, 400, 500]).toContain(res.status);
@@ -553,16 +622,17 @@ describe("http messages endpoints", () => {
      */
     it("handles empty text appropriately", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: channel.id,
-          userId: user.id,
-          text: "",
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: channel.id,
+        userId: user.id,
+        text: "",
+      });
 
       // Either accepts empty string or rejects it - both are valid behaviors
       expect([200, 400, 500]).toContain(res.status);
@@ -574,18 +644,19 @@ describe("http messages endpoints", () => {
      */
     it("handles very long text", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
 
       const longText = "a".repeat(10000);
 
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: channel.id,
-          userId: user.id,
-          text: longText,
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: channel.id,
+        userId: user.id,
+        text: longText,
+      });
 
       // Either accepts or rejects long text - both are valid
       expect([200, 400, 500]).toContain(res.status);
@@ -596,18 +667,16 @@ describe("http messages endpoints", () => {
      * No foreign key constraint prevents this.
      */
     it("allows posting to non-existent channel (no FK)", async () => {
-      const user = await createUser("alice", "alice@example.com");
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: 99999,
-          userId: user.id,
-          text: "Hello",
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: 99999,
+        userId: user.id,
+        text: "Hello",
+      });
 
-      // No FK constraint, so succeeds
-      expect(res.status).toBe(200);
+      // FK constraint enforced, so fails
+      expect(res.status).toBe(500);
     });
 
     /**
@@ -616,18 +685,19 @@ describe("http messages endpoints", () => {
      */
     it("allows posting by non-existent user (no FK)", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
 
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: channel.id,
-          userId: 99999,
-          text: "Hello",
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: channel.id,
+        userId: 99999,
+        text: "Hello",
+      });
 
-      // No FK constraint, so succeeds
-      expect(res.status).toBe(200);
+      // FK constraint enforced, so fails
+      expect(res.status).toBe(500);
     });
 
     /**
@@ -636,17 +706,18 @@ describe("http messages endpoints", () => {
      */
     it("handles invalid threadTs gracefully", async () => {
       const workspaceId = await createWorkspace("Test Workspace", "test-ws");
-      const channel = await createChannel(workspaceId, "general");
-      const user = await createUser("alice", "alice@example.com");
+      const channel = await channelsService.createChannel(
+        workspaceId,
+        "general",
+      );
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const res = await request(app)
-        .post("/api/messages.create")
-        .send({
-          channelId: channel.id,
-          userId: user.id,
-          text: "Reply",
-          threadTs: 99999,
-        });
+      const res = await request(app).post("/api/messages.create").send({
+        channelId: channel.id,
+        userId: user.id,
+        text: "Reply",
+        threadTs: 99999,
+      });
 
       // Either accepts (no FK constraint) or rejects - both valid
       expect([200, 400, 404, 500]).toContain(res.status);
@@ -693,7 +764,9 @@ describe("http messages endpoints", () => {
      * Verifies that non-numeric messageId in query string is rejected.
      */
     it("GET /api/messages.getReactions rejects non-numeric messageId", async () => {
-      const res = await request(app).get("/api/messages.getReactions?messageId=abc");
+      const res = await request(app).get(
+        "/api/messages.getReactions?messageId=abc",
+      );
 
       expect(res.status).toBe(400);
       expect(res.body.ok).toBe(false);
@@ -708,49 +781,41 @@ describe("http messages endpoints", () => {
      * Verifies error handling when adding reaction to non-existent message.
      */
     it("handles reaction to non-existent message", async () => {
-      const user = await createUser("alice", "alice@example.com");
+      const user = await usersService.createUser("alice", "alice@example.com");
 
-      const res = await request(app)
-        .post("/api/messages.addReaction")
-        .send({
-          messageId: 99999,
-          userId: user.id,
-          emoji: "👍",
-        });
+      const res = await request(app).post("/api/messages.addReaction").send({
+        messageId: 99999,
+        userId: user.id,
+        emoji: "👍",
+      });
 
       // May accept (no FK) or reject - both valid
       expect([200, 404, 500]).toContain(res.status);
     });
     it("handles missing messageId", async () => {
-      const res = await request(app)
-        .post("/api/messages.addReaction")
-        .send({
-          userId: 1,
-          emoji: "👍",
-        });
+      const res = await request(app).post("/api/messages.addReaction").send({
+        userId: 1,
+        emoji: "👍",
+      });
 
       expect([200, 400, 500]).toContain(res.status);
     });
 
     it("handles missing emoji", async () => {
-      const res = await request(app)
-        .post("/api/messages.addReaction")
-        .send({
-          messageId: 1,
-          userId: 1,
-        });
+      const res = await request(app).post("/api/messages.addReaction").send({
+        messageId: 1,
+        userId: 1,
+      });
 
       expect([200, 400, 500]).toContain(res.status);
     });
 
     it("handles wrong type for messageId", async () => {
-      const res = await request(app)
-        .post("/api/messages.addReaction")
-        .send({
-          messageId: "not-a-number",
-          userId: 1,
-          emoji: "👍",
-        });
+      const res = await request(app).post("/api/messages.addReaction").send({
+        messageId: "not-a-number",
+        userId: 1,
+        emoji: "👍",
+      });
 
       expect([200, 400, 500]).toContain(res.status);
     });

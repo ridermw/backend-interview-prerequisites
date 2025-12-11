@@ -1,12 +1,5 @@
 import { Express, Request, Response } from "express";
-import {
-  getMessages,
-  getMessageById,
-  createMessage,
-  getThreadReplies,
-  addReaction,
-  getReactions,
-} from "../api/messages";
+import { messagesService } from "../api/messages";
 import { ValidationError, NotFoundError } from "../api/base";
 import { handleApiError } from "./http";
 
@@ -28,7 +21,7 @@ export function registerMessagesEndpoints(app: Express): void {
         throw new ValidationError("channelId is required and must be a number");
       }
 
-      const messages = await getMessages(Number(channelId));
+      const messages = await messagesService.getMessages(Number(channelId));
       res.json({ ok: true, messages });
     } catch (err: unknown) {
       handleApiError(err, res, "messages.get");
@@ -48,7 +41,7 @@ export function registerMessagesEndpoints(app: Express): void {
         throw new ValidationError("id is required and must be a number");
       }
 
-      const message = await getMessageById(Number(id));
+      const message = await messagesService.getMessageById(Number(id));
       if (!message) {
         throw new NotFoundError("message not found");
       }
@@ -68,7 +61,12 @@ export function registerMessagesEndpoints(app: Express): void {
     const { channelId, userId, text, threadTs } = req.body ?? {};
 
     try {
-      const message = await createMessage(channelId, userId, text, threadTs);
+      const message = await messagesService.createMessage(
+        channelId,
+        userId,
+        text,
+        threadTs,
+      );
       res.json({ ok: true, message });
     } catch (err: unknown) {
       handleApiError(err, res, "messages.create");
@@ -88,13 +86,20 @@ export function registerMessagesEndpoints(app: Express): void {
 
       try {
         if (!channelId || isNaN(Number(channelId))) {
-          throw new ValidationError("channelId is required and must be a number");
+          throw new ValidationError(
+            "channelId is required and must be a number",
+          );
         }
         if (!threadTs || isNaN(Number(threadTs))) {
-          throw new ValidationError("threadTs is required and must be a number");
+          throw new ValidationError(
+            "threadTs is required and must be a number",
+          );
         }
 
-        const replies = await getThreadReplies(Number(channelId), Number(threadTs));
+        const replies = await messagesService.getThreadReplies(
+          Number(channelId),
+          Number(threadTs),
+        );
         res.json({ ok: true, replies });
       } catch (err: unknown) {
         handleApiError(err, res, "messages.getThreadReplies");
@@ -111,7 +116,7 @@ export function registerMessagesEndpoints(app: Express): void {
     const { messageId, userId, emoji } = req.body ?? {};
 
     try {
-      await addReaction(messageId, userId, emoji);
+      await messagesService.addReaction(messageId, userId, emoji);
       res.json({ ok: true });
     } catch (err: unknown) {
       handleApiError(err, res, "messages.addReaction");
@@ -131,7 +136,7 @@ export function registerMessagesEndpoints(app: Express): void {
         throw new ValidationError("messageId is required and must be a number");
       }
 
-      const reactions = await getReactions(Number(messageId));
+      const reactions = await messagesService.getReactions(Number(messageId));
       res.json({ ok: true, reactions });
     } catch (err: unknown) {
       handleApiError(err, res, "messages.getReactions");

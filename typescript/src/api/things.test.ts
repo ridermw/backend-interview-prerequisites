@@ -1,5 +1,5 @@
 import { resetDb, sqlConnection } from "../database";
-import { getThings } from "./things";
+import { thingsService } from "./things";
 
 describe("things api", () => {
   beforeEach(() => {
@@ -18,7 +18,7 @@ describe("things api", () => {
     await insertThing(1, "thing 1");
     await insertThing(2, "thing 2");
 
-    const response = await getThings();
+    const response = await thingsService.getThings();
 
     expect(response).toEqual([
       {
@@ -33,7 +33,7 @@ describe("things api", () => {
   });
 
   it("returns nothing when they dont exist", async () => {
-    const response = await getThings();
+    const response = await thingsService.getThings();
     expect(response).toEqual([]);
   });
 });

@@ -1,11 +1,5 @@
 import { Express, Request, Response } from "express";
-import {
-  getChannels,
-  getChannelById,
-  createChannel,
-  joinChannel,
-  getChannelMembers,
-} from "../api/channels";
+import { channelsService } from "../api/channels";
 import { ValidationError, NotFoundError } from "../api/base";
 import { handleApiError } from "./http";
 
@@ -18,14 +12,14 @@ export function registerChannelsEndpoints(app: Express): void {
    * POST /api/channels.create
    * Creates a new channel in a workspace.
    * Request body: { workspaceId, name, topic?, isPrivate?, userId? }
-   * All validation and business logic is delegated to ChannelsAPI.createChannel()
+   * All validation and business logic is delegated to channelsService.createChannel()
    * Errors are caught and formatted into appropriate HTTP responses.
    */
   app.post(`/api/channels.create`, async (req: Request, res: Response) => {
     const { workspaceId, name, topic, isPrivate, userId } = req.body ?? {};
 
     try {
-      const channel = await createChannel(
+      const channel = await channelsService.createChannel(
         workspaceId,
         name,
         topic,
@@ -48,10 +42,12 @@ export function registerChannelsEndpoints(app: Express): void {
 
     try {
       if (!workspaceId || isNaN(Number(workspaceId))) {
-        throw new ValidationError("workspaceId is required and must be a number");
+        throw new ValidationError(
+          "workspaceId is required and must be a number",
+        );
       }
 
-      const channels = await getChannels(Number(workspaceId));
+      const channels = await channelsService.getChannels(Number(workspaceId));
       res.json({ ok: true, channels });
     } catch (err: unknown) {
       handleApiError(err, res, "channels.get");
@@ -71,7 +67,7 @@ export function registerChannelsEndpoints(app: Express): void {
         throw new ValidationError("id is required and must be a number");
       }
 
-      const channel = await getChannelById(Number(id));
+      const channel = await channelsService.getChannelById(Number(id));
       if (!channel) {
         throw new NotFoundError("channel not found");
       }
@@ -91,7 +87,7 @@ export function registerChannelsEndpoints(app: Express): void {
     const { channelId, userId } = req.body ?? {};
 
     try {
-      await joinChannel(channelId, userId);
+      await channelsService.joinChannel(channelId, userId);
       res.json({ ok: true });
     } catch (err: unknown) {
       handleApiError(err, res, "channels.join");
@@ -111,7 +107,9 @@ export function registerChannelsEndpoints(app: Express): void {
         throw new ValidationError("channelId is required and must be a number");
       }
 
-      const members = await getChannelMembers(Number(channelId));
+      const members = await channelsService.getChannelMembers(
+        Number(channelId),
+      );
       res.json({ ok: true, members });
     } catch (err: unknown) {
       handleApiError(err, res, "channels.getMembers");

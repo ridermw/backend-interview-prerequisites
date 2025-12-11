@@ -40,10 +40,6 @@ export class NotFoundError extends Error {
   }
 }
 
-/**
- * Configuration options for string validation.
- * Used to specify constraints on string fields such as length and whitespace handling.
- */
 export interface StringValidationOptions {
   required?: boolean;
   minLength?: number;
@@ -168,13 +164,53 @@ class Validator {
 
 /**
  * Abstract base class for all API modules.
- * Provides access to validation and error handling utilities through protected static properties.
- * All API classes (ChannelsAPI, UsersAPI, MessagesAPI, etc.) should extend this class.
+ * Provides access to validation and error handling utilities through protected instance helpers.
+ * API classes can extend this and call the helpers to keep validation near usage.
  */
 export abstract class BaseAPI {
-  // Protected access to validator and error handler for subclasses
-  protected static readonly validator = Validator;
-  protected static readonly errorHandler = DatabaseErrorHandler;
+  protected readonly validator = Validator;
+
+  protected validateId(value: unknown, field: string): number {
+    return this.validator.validateId(value, field);
+  }
+
+  protected validateString(
+    value: unknown,
+    field: string,
+    options?: StringValidationOptions,
+  ): string {
+    return this.validator.validateString(value, field, options);
+  }
+
+  protected validateBoolean(
+    value: unknown,
+    field: string,
+    defaultValue?: boolean,
+  ): boolean {
+    return this.validator.validateBoolean(value, field, defaultValue);
+  }
+
+  protected validateEnum<T extends string>(
+    value: unknown,
+    field: string,
+    allowedValues: readonly T[],
+    defaultValue?: T,
+  ): T {
+    return this.validator.validateEnum(
+      value,
+      field,
+      allowedValues,
+      defaultValue,
+    );
+  }
+
+  protected isSqliteUniqueError(err: unknown, table?: string): boolean {
+    return DatabaseErrorHandler.isUniqueError(err, table);
+  }
+
+  protected isSqliteForeignKeyError(err: unknown): boolean {
+    return DatabaseErrorHandler.isForeignKeyError(err);
+  }
 
   // Public exports for backward compatibility
   public static readonly ValidationError = ValidationError;

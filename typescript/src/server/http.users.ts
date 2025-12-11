@@ -1,10 +1,5 @@
 import { Express, Request, Response } from "express";
-import {
-  getUsers,
-  getUserById,
-  createUser,
-  updateUserStatus,
-} from "../api/users";
+import { usersService } from "../api/users";
 import { ValidationError, NotFoundError } from "../api/base";
 import { handleApiError } from "./http";
 
@@ -19,7 +14,7 @@ export function registerUsersEndpoints(app: Express): void {
    */
   app.get(`/api/users.get`, async (req: Request, res: Response) => {
     try {
-      const users = await getUsers();
+      const users = await usersService.getUsers();
       res.json({ ok: true, users });
     } catch (err: unknown) {
       handleApiError(err, res, "users.get");
@@ -39,7 +34,7 @@ export function registerUsersEndpoints(app: Express): void {
         throw new ValidationError("id is required and must be a number");
       }
 
-      const user = await getUserById(Number(id));
+      const user = await usersService.getUserById(Number(id));
       if (!user) {
         throw new NotFoundError("user not found");
       }
@@ -59,7 +54,7 @@ export function registerUsersEndpoints(app: Express): void {
     const { username, email, displayName } = req.body ?? {};
 
     try {
-      const user = await createUser(username, email, displayName);
+      const user = await usersService.createUser(username, email, displayName);
       res.json({ ok: true, user });
     } catch (err: unknown) {
       handleApiError(err, res, "users.create");
@@ -75,7 +70,7 @@ export function registerUsersEndpoints(app: Express): void {
     const { id, status } = req.body ?? {};
 
     try {
-      const user = await updateUserStatus(id, status);
+      const user = await usersService.updateUserStatus(id, status);
       if (!user) {
         throw new NotFoundError("user not found");
       }
