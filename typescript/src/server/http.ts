@@ -3,6 +3,7 @@ import { ValidationError, ConflictError, NotFoundError } from "../api/base";
 import { registerChannelsEndpoints } from "./http.channels";
 import { registerMessagesEndpoints } from "./http.messages";
 import { registerUsersEndpoints } from "./http.users";
+import { Logger } from "../utils/logger";
 
 /**
  * Centralized error handler for API errors.
@@ -26,7 +27,7 @@ export function handleApiError(err: unknown, res: Response, context: string): vo
     return;
   }
 
-  console.error(`${context} failed`, err);
+  Logger.error(`${context} failed`, "api", err);
   res.status(500).json({ ok: false, error: "internal_error" });
 }
 

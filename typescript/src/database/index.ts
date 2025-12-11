@@ -1,6 +1,7 @@
 import { AsyncDatabase } from "promised-sqlite3";
 import { readFile } from "node:fs/promises";
 import * as path from "node:path";
+import { Logger } from "../utils/logger";
 
 let instance: AsyncDatabase | undefined;
 let schema: string;
@@ -25,7 +26,7 @@ export async function sqlConnection(): Promise<AsyncDatabase> {
         await instance?.run(stmt);
       }
     } catch (err) {
-      console.error("Unable to initialize database", err);
+      Logger.error("Unable to initialize database", "database", err);
       throw err;
     }
   }
